@@ -1,0 +1,25 @@
+flowchart TD
+  START(["Inicio"]) --> LOAD["Cargar cuu_drive.graphml<br/>semaforos, carriles, hospitales"]
+  LOAD --> SPAWN["Crear 400 vehiculos y camiones por ruta"]
+  SPAWN --> TICK{{"Tick 1 s"}}
+
+  TICK --> READ["Leer incidentes y emergencias nuevas"]
+  READ --> INC{"Incidente activo?"}
+  INC -- "si" --> CAP["Reducir capacidad del carril<br/>rerutear autos afectados"]
+  INC -- "no" --> SEM
+  CAP --> SEM["Actualizar semaforos<br/>ciclo 45 / 4 / 41"]
+  SEM --> EMG{"Ambulancia en camino?"}
+  EMG -- "si" --> OLA["Ola verde: semaforos a menos de 300 m en su ruta"]
+  EMG -- "no" --> MOV
+  OLA --> MOV["Mover vehiculos<br/>vel = libre x hora x congestion x clima x incidente"]
+  MOV --> ESC["Zona escolar activa: max 20 km/h"]
+  ESC --> BUS["Camiones: paradas, suben y bajan<br/>sensor virtual a /api/iot/ingest"]
+  BUS --> CONG["Congestion por arista y corredor"]
+  CONG --> PUB["Broadcast tick a city-live"]
+  PUB --> C3{"Cada 3 s?"}
+  C3 -- "si" --> TRAF["Broadcast trafico GeoJSON"]
+  C3 -- "no" --> C30
+  TRAF --> C30{"Cada 30 s?"}
+  C30 -- "si" --> FORE["Pronostico 30 min por corredor"]
+  C30 -- "no" --> TICK
+  FORE --> TICK

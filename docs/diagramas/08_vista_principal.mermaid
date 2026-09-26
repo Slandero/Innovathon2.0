@@ -1,0 +1,25 @@
+flowchart TD
+  A(["Abrir ViveCUU"]) --> B["Splash 1 s"]
+  B --> C{"Permiso de ubicacion?"}
+  C -->|"si"| D["flyTo al usuario, zoom 15<br/>punto azul con direccion"]
+  C -->|"no"| E["Centro de Chihuahua, zoom 13<br/>aviso activar ubicacion"]
+  D --> F["Mapa vivo<br/>autos, semaforos, altos, topes, trafico"]
+  E --> F
+  F --> G["Tocar A donde vas"]
+  F --> MIC["Tocar microfono<br/>copiloto de voz"]
+  MIC -->|"llevar_a"| I
+  G --> H["Busqueda Mapbox<br/>recientes y accesos rapidos"]
+  H --> I["Tarjeta del lugar<br/>carro y camion"]
+  I --> J["Como llegar<br/>Directions driving-traffic"]
+  J --> K["Ruta + alternativas<br/>alertas en el camino con Turf"]
+  K --> L{"Incidente en la ruta?"}
+  L -->|"si"| M["Ofrecer alternativa"]
+  L -->|"no"| N["Iniciar"]
+  M --> N
+  N --> O["Modo navegacion<br/>pitch 55, banner de maniobra"]
+  O --> P["Simular viaje para demo<br/>para en rojo y en alto"]
+  P --> Q["Avisos de voz<br/>tope, semaforo, zona escolar"]
+  Q --> R{"Incidente nuevo en ruta?"}
+  R -->|"si"| S["Recalcular y avisar"]
+  S --> O
+  R -->|"no"| T(["Llegaste"])

@@ -1,0 +1,28 @@
+flowchart TD
+  P1["P1 Mapa vivo - Home"]
+  P2["P2 Hoja de camion"]
+  P3["P3 Hoja de incidente o reporte"]
+  P4A["P4.1 Foto"]
+  P4B["P4.2 Confirmar ubicacion"]
+  P4C["P4.3 Nota opcional"]
+  P4D["P4.4 IA revisando"]
+  P4E["P4.5 Resultado"]
+  P5A["P5.1 SOS tipo de emergencia"]
+  P5B["P5.2 Seguimiento de ambulancia"]
+  P6["P6 Asistente"]
+  P7["P7 Que pasa en CUU"]
+  P8["P8 Ruta A a B"]
+  ADM["/demo panel oculto"]
+
+  P1 -- "toca camion" --> P2
+  P1 -- "toca marcador" --> P3
+  P1 -- "boton Reportar" --> P4A
+  P4A --> P4B --> P4C --> P4D --> P4E
+  P4E -- "ver en mapa" --> P1
+  P1 -- "boton SOS" --> P5A --> P5B
+  P1 -- "Que pasa" --> P7
+  P1 -- "Asistente" --> P6
+  P1 -- "A donde vas" --> P8
+  P7 -- "toca evento" --> P3
+  P3 -- "Sigue ahi" --> P3
+  ADM -.->|dispara eventos| P1

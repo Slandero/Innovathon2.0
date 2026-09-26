@@ -1,0 +1,31 @@
+gantt
+  title ViveCUU - plan v2 (entrega 19:30)
+  dateFormat HH:mm
+  axisFormat %H:%M
+
+  section P1 Motor, datos y n8n
+  Supabase y schema                 :p1a, 11:30, 20m
+  Overpass, OSMnx y seed            :p1b, after p1a, 40m
+  Motor autos, semaforos, altos     :p1c, after p1b, 120m
+  Camiones e IoT                    :p1d, after p1c, 60m
+  n8n flujos F1 y F2                :p1e, after p1d, 90m
+  SOS y ola verde                   :p1f, after p1e, 45m
+
+  section P2 App
+  Vista principal tipo Waze         :crit, p2a, 11:30, 120m
+  Semaforos, altos y navegacion     :p2b, after p2a, 60m
+  Autos en vivo y trafico           :p2c, after p2b, 60m
+  Pestana Camiones                  :p2d, after p2c, 90m
+  Incidentes, toasts y demo         :p2e, after p2d, 45m
+
+  section P3 Diseno, voz e IA
+  Claude Design pantallas           :p3a, 11:30, 60m
+  Agente ElevenLabs y tools         :p3b, after p3a, 90m
+  Copiloto en la app                :p3c, after p3b, 60m
+  Reportar con IA                   :p3d, after p3c, 75m
+  Slides y video respaldo           :p3e, after p3d, 60m
+
+  section Todos
+  Pulido y deploy                   :t0, 18:00, 45m
+  Congelar y ensayar                :crit, t1, 18:45, 45m
+  Entrega                           :milestone, 19:30, 0m

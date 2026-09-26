@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "author": "Hackathon 2026 - Pozo Vivo",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": -60, "left": 180, "attrs": {} },
+    { "type": "wokwi-led", "id": "led1", "top": -60, "left": -80, "attrs": { "color": "red" } }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "pot1:GND", "esp:GND.1", "black", [] ],
+    [ "pot1:VCC", "esp:3V3", "red", [] ],
+    [ "pot1:SIG", "esp:34", "green", [] ],
+    [ "led1:A", "esp:2", "red", [] ],
+    [ "led1:C", "esp:GND.2", "black", [] ]
+  ]
+}

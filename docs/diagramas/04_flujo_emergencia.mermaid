@@ -1,0 +1,24 @@
+sequenceDiagram
+  autonumber
+  actor C as Ciudadano
+  participant APP as App ViveCUU
+  participant DB as Supabase
+  participant M as Motor de ciudad
+  participant S as Semaforos
+  participant RT as Realtime
+
+  C->>APP: Presiona SOS y confirma ambulancia
+  APP->>DB: INSERT emergencia estado solicitada
+  M->>DB: Lee emergencias solicitadas cada 2 s
+  M->>M: Hospital mas cercano por tiempo
+  M->>M: Ruta mas rapida en la red real
+  M->>DB: estado en_camino, ruta, eta_seg
+  DB->>RT: cambio en emergencias
+  RT-->>APP: Dibuja ruta y ETA
+  loop Cada tick de 1 s
+    M->>S: Semaforos a menos de 300 m en la ruta pasan a verde
+    M->>RT: Posicion de ambulancia
+    RT-->>APP: Ambulancia se mueve, ETA baja
+  end
+  M->>DB: estado en_sitio, semaforos_verdes
+  RT-->>APP: La ambulancia llego

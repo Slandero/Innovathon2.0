@@ -1,0 +1,85 @@
+erDiagram
+  INFRA {
+    bigint id PK
+    bigint osm_id
+    text tipo "semaforo tope cruce escuela hospital parada"
+    text nombre
+    float lat
+    float lng
+    jsonb meta
+  }
+  ZONAS_ESCOLARES {
+    bigint id PK
+    bigint escuela_id FK
+    text nombre
+    int limite_kmh
+    text horarios
+    jsonb poligono
+  }
+  RUTAS_CAMION {
+    text id PK
+    text nombre
+    text color
+    jsonb trazo
+  }
+  CAMIONES {
+    text id PK
+    text ruta_id FK
+    int capacidad
+    int ocupacion
+    text proxima_parada
+    int eta_min
+    text fuente "sim o iot"
+    float lat
+    float lng
+  }
+  LECTURAS_IOT {
+    bigint id PK
+    text device_id
+    text camion_id FK
+    int suben
+    int bajan
+    int ocupacion
+    timestamptz ts
+  }
+  REPORTES {
+    bigint id PK
+    text tipo
+    int severidad
+    text titulo
+    text resumen_ia
+    text dependencia
+    text foto_url
+    int votos
+    text estado
+    float lat
+    float lng
+  }
+  INCIDENTES {
+    bigint id PK
+    text tipo "accidente cierre obra evento"
+    text calle
+    int_array carril_bloqueado
+    int carriles_totales
+    int retraso_min
+    text estado
+    float lat
+    float lng
+    text edge_ref
+  }
+  EMERGENCIAS {
+    bigint id PK
+    text tipo
+    text estado "solicitada en_camino en_sitio"
+    bigint hospital_id FK
+    jsonb ruta
+    int eta_seg
+    int semaforos_verdes
+    float lat
+    float lng
+  }
+
+  INFRA ||--o| ZONAS_ESCOLARES : "escuela genera"
+  RUTAS_CAMION ||--o{ CAMIONES : "tiene"
+  CAMIONES ||--o{ LECTURAS_IOT : "reporta"
+  INFRA ||--o{ EMERGENCIAS : "hospital atiende"

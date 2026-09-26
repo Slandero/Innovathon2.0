@@ -1,0 +1,38 @@
+flowchart LR
+  subgraph IN["Disparadores"]
+    V["Copiloto de voz"]
+    BS["Boton secreto /demo"]
+    AN["Anomalia de celda"]
+    RP["Reporte grave"]
+  end
+
+  WH["Webhook<br/>vivecuu/incidente"]
+  NORM["Normalizar"]
+  IF1{"Trae severidad?"}
+  CLS["Claude<br/>clasificar"]
+  MRG["Merge"]
+  INS["Insertar incidente<br/>Supabase"]
+  SEM["Semaforo cercano a rojo<br/>overrides_semaforo"]
+  SW{"Severidad"}
+  A911["Alerta 911 SIMULADA<br/>folio en dashboard"]
+  FAM["SMS o Telegram<br/>contacto familiar"]
+  DES["Protocolo de desvio"]
+  FEED["Solo feed"]
+  RESP["Respond to Webhook<br/>mensaje_voz"]
+
+  V --> WH
+  BS --> WH
+  AN --> WH
+  RP --> WH
+  WH --> NORM --> IF1
+  IF1 -->|"no"| CLS --> MRG
+  IF1 -->|"si"| MRG
+  MRG --> INS --> SEM --> SW
+  SW -->|"4 a 5"| A911
+  SW -->|"4 a 5"| FAM
+  SW -->|"3 a 5"| DES
+  SW -->|"1 a 2"| FEED
+  A911 --> RESP
+  FAM --> RESP
+  DES --> RESP
+  FEED --> RESP

@@ -1,0 +1,70 @@
+flowchart LR
+  subgraph DATOS["Datos reales"]
+    OSM["OpenStreetMap<br/>semaforos, altos, topes,<br/>escuelas, paradas, red vial"]
+    MBX["Mapbox<br/>mapa, busqueda,<br/>rutas con trafico"]
+    INEGI["INEGI ATUS<br/>calibracion"]
+    METEO["Open-Meteo<br/>clima"]
+  end
+
+  subgraph MOTOR["Motor de ciudad - Python"]
+    VEH["Autos, semaforos y altos"]
+    CEL["Celdas 50 x 50 m<br/>deteccion de anomalias"]
+    BUS["Camiones<br/>sensores virtuales"]
+    EMG["Ambulancia<br/>ola verde"]
+  end
+
+  subgraph N8N["n8n - automatizaciones"]
+    F1["F1 Incidente<br/>911 simulado, familiar, desvio"]
+    F2["F2 Reporte a dependencia"]
+    F3["F3 Resumen de la ciudad"]
+  end
+
+  subgraph SUPA["Supabase"]
+    DB[("Postgres + PostGIS")]
+    RT{{"Realtime"}}
+    ST[("Storage")]
+  end
+
+  subgraph APP["App ViveCUU - Next.js PWA"]
+    HOME["Vista principal<br/>busqueda, ruta, navegacion"]
+    CAM["Pestana Camiones"]
+    REP["Reportar"]
+    SOS["SOS"]
+    MIC["Microfono copiloto"]
+    DEMO["Panel demo<br/>boton secreto"]
+    API["API routes<br/>iot, reportes, estado"]
+  end
+
+  ELEV["ElevenLabs<br/>agente de voz"]
+  CLAUDE["Claude API"]
+  ESP["ESP32 opcional"]
+
+  OSM --> MOTOR
+  OSM --> HOME
+  MBX --> HOME
+  INEGI --> MOTOR
+  METEO --> MOTOR
+  VEH -->|"tick 1 s"| RT
+  CEL -->|"anomalia"| F1
+  BUS -->|"payload sensor"| API
+  ESP -.->|"mismo protocolo"| API
+  EMG --> DB
+  DB --> MOTOR
+  RT --> HOME
+  RT --> CAM
+  DB --> RT
+  API --> DB
+  REP --> API
+  API --> CLAUDE
+  API --> F2
+  SOS --> DB
+  DEMO --> F1
+  MIC --> ELEV
+  ELEV -->|"reportar_incidente"| F1
+  ELEV -->|"consultar_trafico, buscar_camion"| API
+  ELEV -->|"llevar_a"| HOME
+  F1 --> CLAUDE
+  F1 --> DB
+  F2 --> DB
+  F3 --> DB
+  REP --> ST

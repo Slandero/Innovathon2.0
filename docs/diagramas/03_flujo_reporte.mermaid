@@ -1,0 +1,30 @@
+sequenceDiagram
+  autonumber
+  actor C as Ciudadano
+  participant APP as App ViveCUU
+  participant API as /api/reportes/clasificar
+  participant ST as Supabase Storage
+  participant AI as Claude API
+  participant DB as Postgres + PostGIS
+  participant RT as Realtime
+  actor O as Otros ciudadanos
+
+  C->>APP: Toma foto y confirma ubicacion
+  APP->>API: foto + nota + lat/lng
+  API->>ST: Sube foto
+  ST-->>API: foto_url
+  API->>AI: Foto + nota + instrucciones JSON
+  AI-->>API: tipo, severidad, titulo, dependencia
+  alt JSON invalido
+    API->>AI: Reintento
+  end
+  API->>DB: reportes_cercanos(lat, lng, tipo)
+  alt Ya existe a menos de 30 m
+    API->>DB: votar_reporte(id)
+    API-->>APP: Ya lo habian reportado, sumaste tu voto
+  else Nuevo
+    API->>DB: INSERT reporte
+    DB->>RT: cambio en reportes
+    RT-->>O: Nuevo marcador en el mapa
+    API-->>APP: Tarjeta con clasificacion de la IA
+  end

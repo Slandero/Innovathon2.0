@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --surface: #f6f7f9;
+  --text: #1f2328;
+  --text-2: #5f6b7a;
+  --brand: #7C5CFF;
+  --primary: #3D5AFE;
+  --sos: #e5252a;
+  --traffic-free: #34a853;
+  --traffic-mod: #fbbc04;
+  --traffic-heavy: #f57c00;
+  --traffic-stop: #c5221f;
+  --school: #8e44ad;
+}
+
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* Controles del mapa discretos */
+.mapboxgl-ctrl-logo,
+.maplibregl-ctrl-attrib {
+  opacity: 0.6;
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  overflow: hidden;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes cuuwave { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+@keyframes cuuscan { 0% { top: 0; } 100% { top: calc(100% - 3px); } }
+
+/* Paleta futurista: violeta eléctrico → cian */
+.bg-futuro {
+  background-image: linear-gradient(135deg, #7c5cff 0%, #3d5afe 55%, #00d1ff 100%);
+}
+.text-futuro {
+  background-image: linear-gradient(120deg, #7c5cff 0%, #3d5afe 50%, #00d1ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

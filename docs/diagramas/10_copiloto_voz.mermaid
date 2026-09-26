@@ -1,0 +1,23 @@
+sequenceDiagram
+  autonumber
+  actor U as Conductor
+  participant APP as App ViveCUU
+  participant EL as Agente ElevenLabs
+  participant N8 as n8n F1
+  participant DB as Supabase
+  participant M as Motor de ciudad
+
+  U->>APP: Toca el microfono
+  APP->>EL: startSession con ubicacion y ruta
+  EL-->>U: Que onda, soy tu copiloto
+  U->>EL: Hay un choque fuerte en Av. Tecnologico, carril de en medio
+  EL->>N8: reportar_incidente texto, calle, carril 2, lat, lng
+  N8->>N8: Clasifica severidad 5
+  N8->>DB: Inserta incidente y semaforo a rojo
+  N8->>DB: Alerta 911 simulada y aviso familiar
+  DB-->>APP: Realtime: rombo rojo, carril 2, toasts
+  M->>DB: Lee incidente
+  M-->>APP: Autos rerutean, calle en rojo
+  N8-->>EL: mensaje_voz
+  EL-->>U: Listo, avise a emergencias y te llevo por Av. Universidad
+  APP->>APP: Recalcula ruta del usuario

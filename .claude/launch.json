@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vivecuu",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "vivecuu-alt",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/dev-alt.mjs"
+      ],
+      "port": 3001
+    }
+  ]
+}
