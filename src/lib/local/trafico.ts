@@ -21,6 +21,19 @@ const metros = (a: number[], lng: number, lat: number) => Math.hypot((a[0] - lng
 
 /** Puntos pintados por incidentes de demo; la hora pico se dibuja debajo. */
 const puntos: { lng: number; lat: number; radio_m: number; nivel: number }[] = [];
+/**
+ * Puntos de tráfico observados en Google Maps (26 sep 2026, 14:22) para calibrar la simulación.
+ * Coordenadas de OpenStreetMap. Todo lo demás fluye en verde.
+ */
+const PUNTOS_OBSERVADOS = [
+  { lng: -106.1461, lat: 28.72683, radio_m: 160, nivel: 3 },   // Av. Tecnológico × Miguel Sigala (trabajos)
+  { lng: -106.14722, lat: 28.72822, radio_m: 120, nivel: 3 },  // Tecnológico entre Los Arcos y Sigala
+  { lng: -106.10305, lat: 28.60811, radio_m: 140, nivel: 3 },  // Perif. de la Juventud × C. Geranios (choque)
+  { lng: -106.10215, lat: 28.60442, radio_m: 160, nivel: 2 },  // Periférico al sur de la gaza
+  { lng: -106.10282, lat: 28.60179, radio_m: 160, nivel: 2 },
+  { lng: -106.03902, lat: 28.65581, radio_m: 350, nivel: 2 },  // Autopista Chihuahua–Aldama, salida oriente
+];
+
 /** Zonas de obra: fijas, no se borran con "Limpiar". */
 const zonasObra: { lng: number; lat: number; radio_m: number; nivel: number }[] = [];
 let horaPico = false;
@@ -47,15 +60,16 @@ async function repintar() {
     for (const t of ts) {
       if (t.clase === 'secondary') continue;
       const r = ruido(t.id, ventana) * 0.35 + ruido(t.id, 0) * 0.65; // cada calle tiene su personalidad
-      traficoVivo.niveles.set(t.id, r > 1 - 0.1 * carga ? 2 : r > 1 - 0.32 * carga ? 1 : 0);
+      // Como en la ciudad real: casi todo fluye; solo un poco de lento en hora pico (sin rojo al azar)
+      traficoVivo.niveles.set(t.id, r > 1 - 0.07 * carga ? 1 : 0);
     }
   }
   if (horaPico) {
     for (const t of ts) {
       if (t.clase === 'secondary') continue;
-      // determinista por id: ~35 % lento, ~20 % pesado, el resto fluido
+      // determinista por id: ~20 % lento, ~7 % pesado, el resto fluido
       const h = (t.id * 2654435761) % 100;
-      traficoVivo.niveles.set(t.id, h < 20 ? 2 : h < 55 ? 1 : 0);
+      traficoVivo.niveles.set(t.id, h < 7 ? 2 : h < 27 ? 1 : 0);
     }
   }
   for (const p of [...zonasObra, ...puntos]) {
@@ -92,10 +106,11 @@ export const horaPicoLocal = () => horaPico;
 export function traficoObras(obras: Obra[]) {
   zonasObra.length = 0;
   for (const o of obras) {
-    zonasObra.push({ lng: o.lng, lat: o.lat, radio_m: o.alternas_saturadas.length ? 900 : 550, nivel: 2 });
+    zonasObra.push({ lng: o.lng, lat: o.lat, radio_m: 300, nivel: 2 });
     const c = o.cierre.coordinates;
-    for (let i = 0; i < c.length; i += Math.max(1, Math.floor(c.length / 12))) zonasObra.push({ lng: c[i][0], lat: c[i][1], radio_m: 90, nivel: 3 });
+    for (let i = 0; i < c.length; i += Math.max(1, Math.floor(c.length / 12))) zonasObra.push({ lng: c[i][0], lat: c[i][1], radio_m: 60, nivel: 3 });
   }
+  zonasObra.push(...PUNTOS_OBSERVADOS);
   return repintar();
 }
 

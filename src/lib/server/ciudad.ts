@@ -177,7 +177,7 @@ export async function crearIncidente(e: EntradaIncidente): Promise<RespuestaCiud
     } else eventos.push({ t: 'semaforo', osm_id: osm, estado: 'rojo', expira });
   }
   if (!persistido && (c.tipo === 'accidente' || c.tipo === 'cierre' || c.tipo === 'congestion')) {
-    eventos.push({ t: 'trafico', lng, lat, radio_m: c.tipo === 'congestion' ? 350 : 220, nivel: 3 });
+    eventos.push({ t: 'trafico', lng, lat, radio_m: c.tipo === 'congestion' ? 250 : 150, nivel: 3 });
   }
 
   // 3) Alertas según severidad (el 911 es SIEMPRE simulado)
