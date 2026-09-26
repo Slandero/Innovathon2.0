@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { CENTRO_CUU } from '@/lib/config';
 import { fraseSugerencia, paradaMasCercana, proximasLlegadas, sugerirRutas } from '@/lib/data/camiones';
@@ -15,16 +17,29 @@ export async function GET(req: Request) {
   const u = new URL(req.url);
   const lat = Number(u.searchParams.get('lat')) || CENTRO_CUU.lat;
   const lng = Number(u.searchParams.get('lng')) || CENTRO_CUU.lng;
-  const destino = (u.searchParams.get('destino') || '').trim();
+  const dicho = (u.searchParams.get('destino') || '').trim();
+  // Destinos que la gente dice corto → búsqueda que sí encuentra el lugar
+  const ALIAS: Record<string, string> = {
+    centro: 'Plaza de Armas Chihuahua', 'el centro': 'Plaza de Armas Chihuahua', tec: 'Instituto Tecnológico de Chihuahua',
+    'tec ii': 'Instituto Tecnológico de Chihuahua II', 'tec 2': 'Instituto Tecnológico de Chihuahua II', uach: 'Universidad Autónoma de Chihuahua Campus II',
+  };
+  const destino = ALIAS[dicho.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')] || dicho;
 
+  // Rutas y unidades de Supabase; si no hay (o falla), las rutas de respaldo del archivo
   const sb = supabaseAdmin();
-  if (!sb) return NextResponse.json({ texto: 'Ahorita no tengo datos de camiones, intenta en un momento.' });
-  const [{ data: rutas }, { data: camiones }] = await Promise.all([
-    sb.from('rutas_camion').select('*'),
-    sb.from('camiones').select('*'),
-  ]);
-  const R = (rutas || []) as RutaCamion[];
-  const Cm = (camiones || []) as Camion[];
+  let R: RutaCamion[] = [];
+  let Cm: Camion[] = [];
+  if (sb) {
+    const [{ data: rutas }, { data: camiones }] = await Promise.all([
+      sb.from('rutas_camion').select('*'),
+      sb.from('camiones').select('*'),
+    ]);
+    R = (rutas || []) as RutaCamion[];
+    Cm = (camiones || []) as Camion[];
+  }
+  if (!R.length) {
+    try { R = JSON.parse(await readFile(path.join(process.cwd(), 'public/data/rutas_camion.json'), 'utf8')); } catch { /* sin archivo */ }
+  }
   if (!R.length) return NextResponse.json({ texto: 'Todavía no hay rutas de camión cargadas.' });
 
   if (destino) {
