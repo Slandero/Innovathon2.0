@@ -1,6 +1,8 @@
 // Prueba de humo de la app corriendo: páginas, datos estáticos y TODAS las API routes.
-// Funciona en modo local (sin llaves) y conectado. Uso: node scripts/probar-app.mjs [http://localhost:3000]
-const APP = process.argv[2] || 'http://localhost:3000';
+// Funciona en modo local (sin llaves) y conectado. Uso: node scripts/probar-app.mjs [http://localhost:3000] [--limpiar]
+// --limpiar corre también "Limpiar" de /demo: con Supabase BORRA las alertas y resuelve incidentes.
+const APP = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'http://localhost:3000';
+const LIMPIAR = process.argv.includes('--limpiar');
 let fallas = 0;
 const ok = (b, msg, extra = '') => { console.log(`${b ? '✓' : '✗'} ${msg}${extra ? ` · ${extra}` : ''}`); if (!b) fallas++; };
 const post = (ruta, cuerpo) => fetch(APP + ruta, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) })
@@ -27,7 +29,7 @@ if (inc) {
 }
 
 console.log('── Botón secreto (/demo)');
-for (const [accion, extra] of [['accidente', { calle: 'Periférico de la Juventud', carril: 2 }], ['congestion', { calle: 'Av. Universidad' }], ['cerrar_via', { calle: 'Av. Independencia' }], ['hora_pico', { activo: true }], ['sos', {}], ['resumen', { hechos: 'Choque en Av. Tecnológico\nObra en Teófilo Borunda' }], ['hora_pico', { activo: false }], ['limpiar', {}]]) {
+for (const [accion, extra] of [['accidente', { calle: 'Periférico de la Juventud', carril: 2 }], ['congestion', { calle: 'Av. Universidad' }], ['cerrar_via', { calle: 'Av. Independencia' }], ['hora_pico', { activo: true }], ['sos', {}], ['resumen', { hechos: 'Choque en Av. Tecnológico\nObra en Teófilo Borunda' }], ['hora_pico', { activo: false }], ...(LIMPIAR ? [['limpiar', {}]] : [])]) {
   const r = await post('/api/demo', { accion, ...extra });
   ok(r.ok, `demo: ${accion}`, (r.mensaje || '').split('\n')[0].slice(0, 70) || tipos(r));
 }
