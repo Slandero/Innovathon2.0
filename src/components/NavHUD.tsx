@@ -88,7 +88,7 @@ export function NavHUD() {
           </div>
         ) : <span />}
         {simulando && (
-          <button onClick={() => set({ velSim: velSim === 1 ? 3 : 1 })} className="pointer-events-auto flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 text-sm font-bold text-primary shadow-[0_4px_16px_rgba(0,0,0,.12)]">
+          <button onClick={() => set({ velSim: velSim === 1 ? 3 : velSim === 3 ? 5 : 1 })} className="pointer-events-auto flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 text-sm font-bold text-primary shadow-[0_4px_16px_rgba(0,0,0,.12)]">
             <Icon name="fast_forward" size={20} fill /> x{velSim} · {info.velKmh} km/h
           </button>
         )}

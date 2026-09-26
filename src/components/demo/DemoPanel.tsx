@@ -10,7 +10,7 @@ import { useCamionesLocal } from '@/lib/local/camiones';
 import { useCiudadLocal } from '@/lib/local/ciudad';
 import { useObras } from '@/lib/data/obras';
 import { useEmergenciaLocal } from '@/lib/local/emergencia';
-import { volarA } from '@/lib/map/instancia';
+import { volarA, getMapa } from '@/lib/map/instancia';
 import { useApp } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Toasts } from '../Toasts';
@@ -36,12 +36,23 @@ export function DemoPanel() {
   const [calle, setCalle] = useState(CALLES_DEMO[0].nombre);
   const [carril, setCarril] = useState(2);
   const [horaPico, setHoraPico] = useState(false);
+  const [usarPin, setUsarPin] = useState(false);
   const [ocupado, setOcupado] = useState<Accion | null>(null);
   const [log, setLog] = useState<{ t: string; txt: string; ok: boolean }[]>([]);
   const c = CALLES_DEMO.find((x) => x.nombre === calle) || CALLES_DEMO[0];
 
   const lanzar = async (accion: Accion, extra: Record<string, unknown> = {}) => {
     setOcupado(accion);
+    
+    // Si usamos el pin para accidente, le inyectamos las coordenadas del centro del mapa
+    if (accion === 'accidente' && usarPin) {
+      const centro = getMapa()?.getCenter();
+      if (centro) {
+        extra.lat = centro.lat;
+        extra.lng = centro.lng;
+      }
+    }
+    
     const cuerpo = { accion, ...extra, ...(accion === 'resumen' ? { hechos: hechosCiudad() } : {}) };
     const r = await llamarCiudad<RespuestaCiudad & { mensaje_voz?: string }>('/api/demo', cuerpo);
     setOcupado(null);
@@ -73,25 +84,39 @@ export function DemoPanel() {
         </div>
 
         <div className="flex flex-col gap-3 rounded-[18px] border border-[#E1E4E8] p-3.5">
-          <div className="flex items-center gap-2 text-[15px] font-bold"><Icon name="car_crash" size={22} fill className="text-traffic-stop" />Provocar accidente</div>
-          <div className="grid grid-cols-[1fr_92px] gap-2">
-            <label className="relative">
-              <span className="sr-only">Calle</span>
-              <select value={calle} onChange={(e) => { setCalle(e.target.value); setCarril(Math.min(carril, CALLES_DEMO.find((x) => x.nombre === e.target.value)?.carriles || 3)); }}
-                className="h-[42px] w-full appearance-none rounded-xl border border-[#E1E4E8] bg-white pl-3 pr-8 text-sm outline-none focus:border-primary">
-                {CALLES_DEMO.map((x) => <option key={x.nombre}>{x.nombre}</option>)}
-              </select>
-              <Icon name="expand_more" size={20} className="pointer-events-none absolute right-2 top-[11px] text-ink-2" />
-            </label>
-            <label className="relative">
-              <span className="sr-only">Carril</span>
-              <select value={carril} onChange={(e) => setCarril(Number(e.target.value))}
-                className="h-[42px] w-full appearance-none rounded-xl border border-[#E1E4E8] bg-white pl-3 pr-7 text-sm outline-none focus:border-primary">
-                {Array.from({ length: c.carriles }, (_, i) => <option key={i} value={i + 1}>Carril {i + 1}</option>)}
-              </select>
-              <Icon name="expand_more" size={20} className="pointer-events-none absolute right-1.5 top-[11px] text-ink-2" />
-            </label>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[15px] font-bold"><Icon name="car_crash" size={22} fill className="text-traffic-stop" />Provocar accidente</div>
+            <button onClick={() => setUsarPin(!usarPin)} className="flex items-center gap-1 rounded-full bg-[#F1F3F5] px-2.5 py-1 text-[11px] font-bold text-ink-2 transition hover:bg-[#E1E4E8]">
+              <Icon name={usarPin ? 'format_list_bulleted' : 'location_on'} size={14} />
+              {usarPin ? 'Usar lista' : 'Usar pin'}
+            </button>
           </div>
+          
+          {!usarPin ? (
+            <div className="grid grid-cols-[1fr_92px] gap-2">
+              <label className="relative">
+                <span className="sr-only">Calle</span>
+                <select value={calle} onChange={(e) => { setCalle(e.target.value); setCarril(Math.min(carril, CALLES_DEMO.find((x) => x.nombre === e.target.value)?.carriles || 3)); }}
+                  className="h-[42px] w-full appearance-none rounded-xl border border-[#E1E4E8] bg-white pl-3 pr-8 text-sm outline-none focus:border-primary">
+                  {CALLES_DEMO.map((x) => <option key={x.nombre}>{x.nombre}</option>)}
+                </select>
+                <Icon name="expand_more" size={20} className="pointer-events-none absolute right-2 top-[11px] text-ink-2" />
+              </label>
+              <label className="relative">
+                <span className="sr-only">Carril</span>
+                <select value={carril} onChange={(e) => setCarril(Number(e.target.value))}
+                  className="h-[42px] w-full appearance-none rounded-xl border border-[#E1E4E8] bg-white pl-3 pr-7 text-sm outline-none focus:border-primary">
+                  {Array.from({ length: c.carriles }, (_, i) => <option key={i} value={i + 1}>Carril {i + 1}</option>)}
+                </select>
+                <Icon name="expand_more" size={20} className="pointer-events-none absolute right-1.5 top-[11px] text-ink-2" />
+              </label>
+            </div>
+          ) : (
+            <div className="flex h-[42px] items-center rounded-xl bg-[#F8F9FA] px-3 text-sm text-ink-2">
+              Mueve el mapa a la derecha. El accidente ocurrirá en el centro del mapa 📍.
+            </div>
+          )}
+          
           <button onClick={() => lanzar('accidente', { calle, carril })} disabled={ocupado != null}
             className="flex h-11 items-center justify-center gap-2 rounded-full bg-traffic-stop text-[15px] font-bold text-white active:scale-[.98] disabled:opacity-60">
             {ocupado === 'accidente' && <Icon name="progress_activity" size={20} className="animate-spin" />}Provocar
@@ -131,6 +156,17 @@ export function DemoPanel() {
 
       <section className="relative h-[60vh] bg-[#F1F0EC] md:h-auto">
         <MapView />
+        
+        {/* Crosshair para el modo Pin */}
+        {usarPin && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="relative flex h-12 w-12 items-center justify-center">
+              <Icon name="location_on" size={32} fill className="text-traffic-stop -mt-6 drop-shadow-md" />
+              <div className="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-traffic-stop/80" />
+            </div>
+          </div>
+        )}
+        
         <div className="pointer-events-none absolute inset-x-4 top-4 flex gap-2.5">
           {[
             { k: 'Vehículos', v: motorVivo || nVehiculos ? String(nVehiculos) : '—', c: 'text-ink' },

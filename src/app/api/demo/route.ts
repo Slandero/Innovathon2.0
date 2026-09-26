@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * sin Supabase regresa los eventos para que las pestañas abiertas los apliquen.
  */
 const Entrada = z.discriminatedUnion('accion', [
-  z.object({ accion: z.literal('accidente'), calle: z.string(), carril: z.number().int().min(1).max(4) }),
+  z.object({ accion: z.literal('accidente'), calle: z.string().optional(), carril: z.number().int().min(1).max(4).optional(), lat: z.number().optional(), lng: z.number().optional() }),
   z.object({ accion: z.literal('congestion'), calle: z.string() }),
   z.object({ accion: z.literal('cerrar_via'), calle: z.string() }),
   z.object({ accion: z.literal('hora_pico'), activo: z.boolean() }),
@@ -32,10 +32,24 @@ export async function POST(req: Request) {
 
   switch (e.accion) {
     case 'accidente': {
-      const c = calleDemo(e.calle);
+      let lat = e.lat;
+      let lng = e.lng;
+      let nombreCalle = 'Ubicación seleccionada (Pin)';
+      let carriles_totales = 2;
+      let carril = e.carril || 1;
+      
+      if (!lat || !lng) {
+        const c = calleDemo(e.calle || '');
+        lat = c.lat;
+        lng = c.lng;
+        nombreCalle = c.nombre;
+        carriles_totales = c.carriles;
+        carril = Math.min(e.carril || 1, c.carriles);
+      }
+      
       const r = await crearIncidente({
-        origen: 'boton_secreto', texto: `Choque fuerte en ${c.nombre}, carril ${e.carril}`, tipo: 'accidente', severidad: 5,
-        calle: c.nombre, carril: Math.min(e.carril, c.carriles), carriles_totales: c.carriles, lat: c.lat, lng: c.lng,
+        origen: 'boton_secreto', texto: `Choque en ${nombreCalle}`, tipo: 'accidente', severidad: 5,
+        calle: nombreCalle, carril, carriles_totales, lat, lng,
       });
       return NextResponse.json({ ...r, mensaje: r.mensaje_voz });
     }

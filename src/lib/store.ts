@@ -34,7 +34,7 @@ interface Estado {
   navegando: boolean;
   simulando: boolean;
   posSim: Ubicacion | null;
-  velSim: 1 | 3;
+  velSim: 1 | 3 | 5;
   hoja: Hoja;
   flujo: Flujo;
   toasts: Toast[];

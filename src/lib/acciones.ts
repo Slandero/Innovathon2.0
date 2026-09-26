@@ -109,10 +109,10 @@ export async function evitarIncidente(inc: Incidente): Promise<boolean> {
   const actual = s.rutas[s.rutaSel];
   if (!actual || !s.lugar) return false;
   const ls = lineString(actual.geometry.coordinates);
-  if (pointToLineDistance(point([inc.lng, inc.lat]), ls, { units: 'meters' }) > 40) return false;
+  if (pointToLineDistance(point([inc.lng, inc.lat]), ls, { units: 'meters' }) > 150) return false;
   const rutas = await trazarRutas(origenActual(), [s.lugar.lng, s.lugar.lat], [inc.lng, inc.lat]);
   const todas = incidentesYObras(useApp.getState());
-  const limpia = rutas.findIndex((r) => !incidenteEnLinea(r.geometry, todas));
+  const limpia = rutas.findIndex((r) => r.fuente !== 'local' && !incidenteEnLinea(r.geometry, todas));
   const calle = inc.calle ? ` en ${inc.calle}` : '';
   if (limpia === -1) {
     useApp.getState().toast({ tipo: 'desvio', titulo: `Aguas: ${inc.tipo === 'accidente' ? 'choque' : inc.tipo}${calle}`, texto: 'No hay alternativa más rápida; maneja con precaución.' });

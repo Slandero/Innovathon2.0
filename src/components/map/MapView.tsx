@@ -14,6 +14,18 @@ const VACIA: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 const ESTADO_NUM = { verde: 0, ambar: 1, rojo: 2 } as const;
 const vis = (b: boolean) => (b ? 'visible' : 'none') as 'visible' | 'none';
 
+// ── Prefetch: arranca las descargas de GeoJSON INMEDIATAMENTE al importar el módulo,
+// en paralelo con la carga del mapa (no esperamos a onLoad/onStyleData).
+let prefetchTramos: Promise<GeoJSON.FeatureCollection> | null = null;
+let prefetchInfra: ReturnType<typeof cargarInfra> | null = null;
+let prefetchZonas: ReturnType<typeof cargarZonas> | null = null;
+if (typeof window !== 'undefined') {
+  prefetchTramos = fetch('/data/tramos.geojson').then(r => r.json()).catch(() => VACIA);
+  prefetchInfra = cargarInfra();
+  // Zonas escolares se difieren un poco: no son críticas para el primer paint
+  prefetchZonas = new Promise(resolve => setTimeout(() => resolve(cargarZonas()), 800)).then(p => p as Awaited<ReturnType<typeof cargarZonas>>);
+}
+
 // ───────────── Estilos de capas
 const traficoLinea: LayerProps = {
   id: 'trafico-l', type: 'line', source: 'trafico',
@@ -189,10 +201,13 @@ export default function MapView() {
 
   const mapLib = useMemo(() => (USA_MAPBOX ? import('mapbox-gl') : import('maplibre-gl')), []);
 
-  // Respaldo sin token: OpenFreeMap "liberty" sin el relieve raster (lento) → Carto Positron si falla
-  const [estilo, setEstilo] = useState<string | object | null>(USA_MAPBOX ? ESTILO_MAPBOX : null);
+  // Respaldo sin token: Carto Positron como default inmediato (sin fetch bloqueante),
+  // luego intenta cargar OpenFreeMap "liberty" para mejorar la estética.
+  const CARTO_FALLBACK = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+  const [estilo, setEstilo] = useState<string | object | null>(USA_MAPBOX ? ESTILO_MAPBOX : CARTO_FALLBACK);
   useEffect(() => {
     if (USA_MAPBOX) return;
+    // Intentar reemplazar con OpenFreeMap (más bonito) de forma no-bloqueante
     fetch(ESTILO_RESPALDO)
       .then((r) => r.json())
       .then((st: { sources: Record<string, { type: string }>; layers: { source?: string }[] }) => {
@@ -201,7 +216,7 @@ export default function MapView() {
         st.layers = st.layers.filter((l) => !l.source || !raster.includes(l.source));
         setEstilo(st);
       })
-      .catch(() => setEstilo('https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'));
+      .catch(() => { /* Ya tenemos Carto cargado, no hacer nada */ });
   }, []);
 
   // ── Carga de mapa. Se inicializa con el primer 'styledata' (no con 'load': una fuente
@@ -215,13 +230,14 @@ export default function MapView() {
     if (process.env.NODE_ENV === 'development') (window as unknown as { __mapa: unknown }).__mapa = m;
     registrarIconos(m);
     m.on('styleimagemissing', () => registrarIconos(m));
-    fetch('/data/tramos.geojson').then((r) => r.json()).then(setTramos).catch(() => {});
-    Promise.all([cargarInfra(), cargarZonas()]).then(([i, z]) => {
+    // Usar los prefetches que ya están en vuelo (no vuelve a hacer fetch)
+    (prefetchTramos || fetch('/data/tramos.geojson').then(r => r.json()).catch(() => VACIA)).then(setTramos);
+    (prefetchInfra || cargarInfra()).then(i => {
       semIds.current = i.features.filter((f) => f.properties.tipo === 'semaforo').map((f) => f.properties.osm_id);
       semEstado.current.clear();
       setInfra(i);
-      setZonas(z);
     });
+    (prefetchZonas || cargarZonas()).then(z => setZonas(z));
   }, []);
 
   // Al desmontar (cambio de página, recarga en caliente) suelta la referencia global

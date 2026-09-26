@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useApp } from '@/lib/store';
 import { LayerChips } from './LayerChips';
 import { LivePill } from './LivePill';
@@ -21,9 +22,9 @@ export function TopBar() {
           >
             <Icon name="mic" fill />
           </button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-futuro text-[15px] font-bold text-white" aria-label="Tu perfil">
+          <Link href="/demo" className="flex h-9 w-9 items-center justify-center rounded-full bg-futuro text-[15px] font-bold text-white transition hover:scale-105 active:scale-95" title="Abrir panel Admin">
             A
-          </div>
+          </Link>
         </div>
       </div>
       <LayerChips />
