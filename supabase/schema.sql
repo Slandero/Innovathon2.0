@@ -1,7 +1,17 @@
--- ViveCUU — esquema completo (secciones 10 y 19 de docs/VIVECUU_MASTER.md + docs/N8N_FLUJOS.md)
--- Pegar en Supabase → SQL Editor y ejecutar una sola vez.
+-- ViveCUU — esquema UNIFICADO (app Next.js + flujo n8n "F1 Incidente (Momento WOW)")
+-- Pegar en Supabase → SQL Editor y ejecutar completo. Después: supabase/seed_infra.sql.
+-- OJO: borra y recrea las tablas (datos de prueba del hackathon).
+--
+-- Compatibilidad con el flujo de n8n de Innovathon 2.0:
+--   · alertas acepta `meta` (además de `payload`)
+--   · overrides_semaforo acepta `semaforo_id` sin `expira` (un trigger lo traduce al osm_id)
+--   · incidentes tiene `created_at` además de `inicio`
 
 create extension if not exists postgis;
+
+drop table if exists overrides_semaforo, alertas, emergencias, incidentes, reportes, lecturas_iot, camiones,
+  rutas_camion, zonas_escolares, infra, sim_control, estado_ciudad cascade;
+drop function if exists semaforo_cercano(double precision, double precision);
 
 -- ───────────────────────── Infraestructura real de OSM
 create table if not exists infra (
@@ -94,6 +104,7 @@ create table if not exists incidentes (
   origen text,
   estado text default 'activo' check (estado in ('activo','resuelto')),
   inicio timestamptz default now(),
+  created_at timestamptz default now(),
   fin timestamptz,
   lat double precision not null,
   lng double precision not null,
@@ -123,16 +134,42 @@ create table if not exists alertas (
   titulo text,
   mensaje text,
   payload jsonb,
+  meta jsonb default '{}'::jsonb,          -- nombre que usa el flujo de n8n
   incidente_id bigint references incidentes(id) on delete set null,
   created_at timestamptz default now()
 );
 
 create table if not exists overrides_semaforo (
   osm_id bigint primary key,
+  semaforo_id bigint,                      -- id de infra (formato del flujo de n8n)
+  lat double precision,                    -- opcional: el trigger elige el semáforo más cercano
+  lng double precision,
   estado text check (estado in ('verde','rojo')),
   motivo text,
-  expira timestamptz not null
+  expira timestamptz not null default (now() + interval '5 minutes'),
+  created_at timestamptz default now()
 );
+
+-- n8n puede mandar {lat, lng, estado, motivo} o {semaforo_id, ...}: se traduce al osm_id del semáforo
+-- real más cercano y se reemplaza el override previo de ese semáforo (sin choques de llave)
+create or replace function overrides_compat() returns trigger language plpgsql as $$
+begin
+  if new.osm_id is null and new.lat is not null and new.lng is not null then
+    select osm_id into new.osm_id from infra where tipo = 'semaforo'
+      order by geom <-> st_setsrid(st_makepoint(new.lng,new.lat),4326)::geography limit 1;
+  end if;
+  if new.osm_id is null then
+    select osm_id into new.osm_id from infra where id = new.semaforo_id and tipo = 'semaforo';
+  end if;
+  if new.osm_id is null then
+    select osm_id into new.osm_id from infra where tipo = 'semaforo' order by id limit 1;
+  end if;
+  if new.estado = 'amarillo' then new.estado := 'rojo'; end if;
+  delete from overrides_semaforo where osm_id = new.osm_id;
+  return new;
+end $$;
+create trigger overrides_compat before insert on overrides_semaforo
+  for each row execute function overrides_compat();
 
 -- ───────────────────────── Control del motor desde /demo
 create table if not exists sim_control (
@@ -171,9 +208,9 @@ returns void language sql security definer as $$
 $$;
 
 create or replace function semaforo_cercano(lat double precision, lng double precision)
-returns table (id bigint, osm_id bigint, distancia_m double precision)
+returns table (id bigint, osm_id bigint, nombre text, distancia_m double precision)
 language sql stable as $$
-  select i.id, i.osm_id, st_distance(i.geom, st_setsrid(st_makepoint(lng,lat),4326)::geography)
+  select i.id, i.osm_id, i.nombre, st_distance(i.geom, st_setsrid(st_makepoint(lng,lat),4326)::geography)
   from infra i where i.tipo = 'semaforo'
   order by i.geom <-> st_setsrid(st_makepoint(lng,lat),4326)::geography
   limit 1;
@@ -189,7 +226,18 @@ language sql stable as $$
 $$;
 
 -- ───────────────────────── Realtime
-alter publication supabase_realtime add table reportes, incidentes, emergencias, camiones, alertas, overrides_semaforo, sim_control, rutas_camion;
+do $$
+declare t text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+  foreach t in array array['reportes','incidentes','emergencias','camiones','alertas','overrides_semaforo','sim_control','rutas_camion'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = t) then
+      execute format('alter publication supabase_realtime add table %I', t);
+    end if;
+  end loop;
+end $$;
 
 -- ───────────────────────── RLS: lectura pública; escritura ciudadana solo en emergencias
 alter table infra enable row level security;

@@ -117,11 +117,37 @@ const NOMBRE_TIPO: Record<string, string> = {
   accidente: 'Choque', cierre: 'Cierre de vía', obra: 'Obra', congestion: 'Congestión', peligro: 'Peligro', evento: 'Evento', otro: 'Incidente',
 };
 
+/** Coordenadas reales del incidente: las que manda la app, una avenida conocida o geocodificada. */
+async function ubicar(e: EntradaIncidente): Promise<{ lat: number; lng: number; calle: string | null }> {
+  let { lat, lng } = e;
+  let calle = e.calle || null;
+  if ((lat == null || lng == null) && calle) {
+    const clave = calle.toLowerCase().replace(/^av(enida)?\.?\s+/, '');
+    const conocida = CALLES_DEMO.find((c) => clave.includes(c.nombre.toLowerCase().replace(/^av\.\s+/, '')));
+    if (conocida) { lat = conocida.lat; lng = conocida.lng; calle = conocida.nombre; }
+  }
+  if ((lat == null || lng == null) && calle) {
+    const g = await geocodificar(calle, [CENTRO_CUU.lng, CENTRO_CUU.lat]);
+    if (g) { lat = g.lat; lng = g.lng; }
+  }
+  return { lat: lat ?? CENTRO_CUU.lat, lng: lng ?? CENTRO_CUU.lng, calle };
+}
+
 export async function crearIncidente(e: EntradaIncidente): Promise<RespuestaCiudad & { mensaje_voz: string; folio?: string }> {
-  // 1) n8n es el orquestador si está configurado (él escribe en Supabase)
-  if (db()) {
-    const r = await llamarN8n<{ mensaje_voz?: string; folio?: string; incidente_id?: number }>('vivecuu/incidente', e);
-    if (r) return { ...respuesta(true, []), mensaje_voz: r.mensaje_voz || 'Listo, ya quedó reportado.', folio: r.folio };
+  // 1) n8n es el orquestador si está configurado (él escribe en Supabase y dispara las alertas).
+  //    Le mandamos coordenadas reales y la calle alterna para que el choque caiga donde es.
+  if (db() && process.env.N8N_WEBHOOK_BASE) {
+    const u = await ubicar(e);
+    const r = await llamarN8n<{ mensaje_voz?: string; folio?: string; incidente_id?: number }>('vivecuu/incidente', {
+      ...e, lat: u.lat, lng: u.lng, calle: u.calle || e.calle || 'tu zona', alterna: alternaDe(u.calle),
+    });
+    if (r) {
+      // el tráfico pintado es solo visual y local
+      const visual: EventoCiudad[] = e.tipo === 'congestion' || e.tipo === 'cierre' || /choque|accidente|cerrad/i.test(e.texto || '') || e.tipo === 'accidente'
+        ? [{ t: 'trafico', lng: u.lng, lat: u.lat, radio_m: e.tipo === 'congestion' ? 250 : 150, nivel: 3 }] : [];
+      return { ...respuesta(true, visual), mensaje_voz: r.mensaje_voz || 'Listo, ya quedó reportado.', folio: r.folio ?? undefined };
+    }
+    console.warn('[n8n] sin respuesta del flujo F1; la app lo hace directo');
   }
 
   const carriles = e.carriles_totales || 3;
@@ -132,20 +158,9 @@ export async function crearIncidente(e: EntradaIncidente): Promise<RespuestaCiud
   if (e.tipo && !e.severidad) c.tipo = e.tipo;
   if (e.carril) c.carril = e.carril;
 
-  let { lat, lng } = e;
-  let calle = e.calle || null;
-  if ((lat == null || lng == null) && calle) {
-    // Avenidas conocidas: coordenadas sobre la vía, sin depender del geocodificador
-    const clave = calle.toLowerCase().replace(/^av(enida)?\.?\s+/, '');
-    const conocida = CALLES_DEMO.find((c) => clave.includes(c.nombre.toLowerCase().replace(/^av\.\s+/, '')));
-    if (conocida) { lat = conocida.lat; lng = conocida.lng; calle = conocida.nombre; }
-  }
-  if ((lat == null || lng == null) && calle) {
-    const g = await geocodificar(calle, [CENTRO_CUU.lng, CENTRO_CUU.lat]);
-    if (g) { lat = g.lat; lng = g.lng; }
-  }
-  if (lat == null || lng == null) { lat = CENTRO_CUU.lat; lng = CENTRO_CUU.lng; }
-  if (!calle) calle = 'tu zona';
+  const u = await ubicar(e);
+  const { lat, lng } = u;
+  const calle = u.calle || 'tu zona';
 
   const bloqueados = e.carriles_bloqueados ?? (c.carril ? [c.carril] : c.tipo === 'cierre' ? Array.from({ length: carriles }, (_, i) => i + 1) : []);
   const retraso = c.tipo === 'cierre' ? 15 : c.severidad >= 4 ? 12 : c.severidad === 3 ? 6 : 3;

@@ -21,10 +21,14 @@ export function useCamionesLocal() {
     let vivo = true;
     let t: ReturnType<typeof setInterval> | undefined;
     const arranque = setTimeout(async () => {
-      if (!vivo || useApp.getState().rutasCamion.length) return;
-      let rutas: RutaCamion[] = [];
-      try { rutas = await (await fetch('/data/rutas_camion.json')).json(); } catch { return; }
-      if (!vivo || !rutas.length || useApp.getState().rutasCamion.length) return;
+      // Solo si nadie (motor o sensores) está mandando unidades
+      const hayUnidades = () => Object.keys(useApp.getState().camiones).length > 0;
+      if (!vivo || hayUnidades()) return;
+      let rutas: RutaCamion[] = useApp.getState().rutasCamion;
+      if (!rutas.length) {
+        try { rutas = await (await fetch('/data/rutas_camion.json')).json(); } catch { return; }
+      }
+      if (!vivo || !rutas.length || hayUnidades()) return;
 
       const unidades: Unidad[] = rutas.flatMap((ruta) => {
         const linea = lineString(ruta.trazo.coordinates);

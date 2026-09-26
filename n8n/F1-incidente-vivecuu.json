@@ -1,0 +1,575 @@
+{
+  "name": "ViveCUU - F1 Incidente (compatible con la app)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vivecuu/incidente",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a2217a2e-844b-4cd6-aaac-5fb93db6fb62",
+      "name": "Webhook Incidente",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        80
+      ],
+      "webhookId": "127e5478-a85c-441c-b2e7-bf74a6a27928"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Normaliza el payload de la app ViveCUU (copiloto, botón secreto, reportes)\nconst body = $json.body || $json;\nconst num = (v) => (v === undefined || v === null || v === '' ? null : Number(v));\nreturn {\n  origen: body.origen || 'boton_secreto',\n  texto: body.texto || 'Choque en Av. Tecnológico',\n  tipo: body.tipo || null,\n  calle: body.calle || 'Av. Tecnológico',\n  carril: num(body.carril),\n  carriles_totales: num(body.carriles_totales) || 3,\n  carriles_bloqueados: Array.isArray(body.carriles_bloqueados) ? body.carriles_bloqueados : null,\n  severidad: num(body.severidad),\n  lat: num(body.lat) ?? 28.6512,\n  lng: num(body.lng) ?? -106.0801,\n  alterna: body.alterna || 'Av. Universidad',\n  retraso_min: num(body.retraso_min),\n  usuario: body.usuario || { nombre: 'Demo', eta_destino_min: 14 },\n  recibido_en: new Date().toISOString(),\n};"
+      },
+      "id": "1e1b958d-1265-4d65-b9ca-974162462b80",
+      "name": "Normalizar Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-severidad",
+              "leftValue": "={{ $json.severidad }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "341d64e9-6163-4037-a1e3-5ef832820c9b",
+      "name": "¿Trae severidad?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        496,
+        192
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c8232555-8801-47ff-a001-7f389ea8002c",
+      "name": "Merge Ramas",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        944,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Clasificador por reglas. Para IA: reemplazar por un nodo Anthropic con el prompt de docs/N8N_FLUJOS.md\nconst texto = ($json.texto || '').toLowerCase();\nconst total = $json.carriles_totales || 3;\nlet tipo = $json.tipo || 'accidente';\nlet severidad = 3;\nlet requiere_911 = false;\nlet carril = $json.carril;\nif (/fuerte|herid|volcadura|grave|atropell|incendio/.test(texto)) { severidad = 5; requiere_911 = true; }\nelse if (/choque|chocaron|accidente|carambola/.test(texto)) { severidad = 4; }\nelse if (/bache|fuga|lento|trafico|tráfico|obra/.test(texto)) {\n  severidad = 2;\n  if (!$json.tipo) tipo = /obra/.test(texto) ? 'obra' : 'congestion';\n}\nif (/cerrad|cierre|bloquead/.test(texto) && !$json.tipo) { tipo = 'cierre'; severidad = Math.max(severidad, 4); }\nif (!carril) {\n  if (/izquierd|rapido|rápido/.test(texto)) carril = 1;\n  else if (/medio|central|enmedio/.test(texto)) carril = Math.ceil(total / 2);\n  else if (/derech|lento/.test(texto)) carril = total;\n}\nreturn { ...$json, tipo, severidad, carril, resumen: ($json.texto || '').slice(0, 120), requiere_911 };"
+      },
+      "id": "1dca5994-5008-445e-9894-ef1cea2ce091",
+      "name": "Clasificar Incidente (IA/Reglas)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eiuopzfesxhbokirlpyp.supabase.co/rest/v1/incidentes",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  tipo: $json.tipo || 'accidente',\n  calle: $json.calle,\n  carril_bloqueado: $json.carriles_bloqueados || ($json.carril && $json.tipo !== 'congestion' ? [$json.carril] : []),\n  carriles_totales: $json.carriles_totales || 3,\n  severidad: $json.severidad || 3,\n  descripcion: $json.resumen || $json.texto,\n  retraso_min: $json.retraso_min || (($json.severidad || 3) >= 4 ? 12 : 6),\n  origen: $json.origen,\n  estado: 'activo',\n  lat: $json.lat,\n  lng: $json.lng\n} }}",
+        "options": {}
+      },
+      "id": "eed6270b-f2f2-4c21-94f1-e980abde2725",
+      "name": "Supabase: Insertar Incidente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        800,
+        192
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2wxI6g5IqS1UlbQo",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eiuopzfesxhbokirlpyp.supabase.co/rest/v1/overrides_semaforo",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  lat: $('Merge Ramas').item.json.lat,\n  lng: $('Merge Ramas').item.json.lng,\n  estado: 'rojo',\n  motivo: 'Incidente en ' + $('Merge Ramas').item.json.calle\n} }}",
+        "options": {}
+      },
+      "id": "36c55921-0a2d-4b09-85df-f61b889338a0",
+      "name": "Supabase: Semáforo a Rojo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1024,
+        192
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2wxI6g5IqS1UlbQo",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Merge Ramas').item.json.severidad || 5 }}",
+                    "rightValue": 4,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Merge Ramas').item.json.severidad || 5 }}",
+                    "rightValue": 3,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "leve"
+        }
+      },
+      "id": "ac51869e-7251-461f-8847-caab3723a680",
+      "name": "Switch: Severidad",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eiuopzfesxhbokirlpyp.supabase.co/rest/v1/alertas",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  tipo: '911_simulado',\n  titulo: 'Enlace 911 (simulado)',\n  mensaje: 'Folio CUU-' + $now.toFormat('HHmmss') + ' · ' + $('Merge Ramas').item.json.calle,\n  incidente_id: $('Supabase: Insertar Incidente').item.json.id,\n  payload: { folio: 'CUU-' + $now.toFormat('HHmmss'), severidad: $('Merge Ramas').item.json.severidad, lat: $('Merge Ramas').item.json.lat, lng: $('Merge Ramas').item.json.lng }\n} }}",
+        "options": {}
+      },
+      "id": "4e00d559-c465-4695-88be-c975343171c5",
+      "name": "Supabase: Alerta 911",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1552,
+        192
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2wxI6g5IqS1UlbQo",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eiuopzfesxhbokirlpyp.supabase.co/rest/v1/alertas",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  tipo: 'desvio',\n  titulo: 'Desvío por ' + $('Merge Ramas').item.json.alterna,\n  mensaje: 'Incidente en ' + $('Merge Ramas').item.json.calle + ' · +' + ($('Merge Ramas').item.json.retraso_min || 12) + ' min si sigues por ahí',\n  incidente_id: $('Supabase: Insertar Incidente').item.json.id,\n  payload: { calle_alterna: $('Merge Ramas').item.json.alterna }\n} }}",
+        "options": {}
+      },
+      "id": "b60934f4-eefa-4471-8ec3-d04d4ffc971d",
+      "name": "Supabase: Alerta Desvío",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2032,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2wxI6g5IqS1UlbQo",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const m = $('Merge Ramas').item.json;\nconst inc = $('Supabase: Insertar Incidente').item.json;\nconst grave = (m.severidad || 3) >= 4;\nconst folio = 'CUU-' + $now.toFormat('HHmmss');\nconst nombres = { accidente: 'choque', cierre: 'cierre', obra: 'obra', congestion: 'tráfico', peligro: 'peligro' };\nconst nombre = nombres[m.tipo] || 'incidente';\nconst carril = m.carril && m.carril < (m.carriles_totales || 3) ? ', carril ' + m.carril : '';\nconst mensaje_voz = grave\n  ? 'Listo. Reporté el ' + nombre + ' en ' + m.calle + carril + '. Avisé a emergencias, simulado, y a tu contacto. Si vas por ahí, toma ' + m.alterna + '.'\n  : 'Listo, reporté ' + nombre + ' en ' + m.calle + '. Ya lo ven los demás en el mapa.';\nreturn { ok: true, folio: grave ? folio : null, incidente_id: inc.id || null, calle: m.calle, carril: m.carril, severidad: m.severidad, mensaje_voz };"
+      },
+      "id": "982f00d3-7d74-44cf-9d7e-9b3b40cef521",
+      "name": "Armar Respuesta Voz",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "26b7691f-d12e-4129-a8f3-2bacef6e584c",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2528,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eiuopzfesxhbokirlpyp.supabase.co/rest/v1/alertas",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  tipo: 'familiar',\n  titulo: 'Avisamos a tu contacto',\n  mensaje: 'Con tu ubicación y hora estimada · simulado',\n  incidente_id: $('Supabase: Insertar Incidente').item.json.id,\n  payload: { calle: $('Merge Ramas').item.json.calle, lat: $('Merge Ramas').item.json.lat, lng: $('Merge Ramas').item.json.lng }\n} }}",
+        "options": {}
+      },
+      "id": "5f3c1b8e-6a2d-4f1e-9c7a-0e4b2d9a7f11",
+      "name": "Supabase: Aviso Familiar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1792,
+        192
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2wxI6g5IqS1UlbQo",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Incidente": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Datos": {
+      "main": [
+        [
+          {
+            "node": "¿Trae severidad?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Trae severidad?": {
+      "main": [
+        [
+          {
+            "node": "Merge Ramas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clasificar Incidente (IA/Reglas)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Ramas": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insertar Incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar Incidente (IA/Reglas)": {
+      "main": [
+        [
+          {
+            "node": "Merge Ramas",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Supabase: Insertar Incidente": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Semáforo a Rojo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Semáforo a Rojo": {
+      "main": [
+        [
+          {
+            "node": "Switch: Severidad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Severidad": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Alerta 911",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase: Alerta Desvío",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Armar Respuesta Voz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Alerta 911": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Aviso Familiar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Alerta Desvío": {
+      "main": [
+        [
+          {
+            "node": "Armar Respuesta Voz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar Respuesta Voz": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Aviso Familiar": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Alerta Desvío",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "f226d650-840f-4217-a9db-2c573599da5b",
+  "meta": {
+    "instanceId": "51af4b040f3434b1ea4f760165393970200e7ab3673d671d7ac660427efa4b56"
+  },
+  "nodeGroups": [
+    {
+      "id": "09846423-a2ca-4094-ab5b-aa6e7649540b",
+      "name": "Recibir y clasificar incidente",
+      "nodeIds": [
+        "1e1b958d-1265-4d65-b9ca-974162462b80",
+        "341d64e9-6163-4037-a1e3-5ef832820c9b",
+        "1dca5994-5008-445e-9894-ef1cea2ce091",
+        "c8232555-8801-47ff-a001-7f389ea8002c"
+      ],
+      "description": "Recibe el reporte por webhook, aplica valores por defecto y clasifica severidad, tipo y carril afectado."
+    },
+    {
+      "id": "67abd329-8ec5-4236-8182-7132a1e21b3a",
+      "name": "Registrar incidente",
+      "nodeIds": [
+        "eed6270b-f2f2-4c21-94f1-e980abde2725",
+        "36c55921-0a2d-4b09-85df-f61b889338a0"
+      ],
+      "description": "Guarda el incidente en la base de datos y pone el semáforo más cercano en rojo."
+    },
+    {
+      "id": "af1d0979-183e-443f-b716-cc3c6829e0d8",
+      "name": "Avisar emergencia",
+      "nodeIds": [
+        "4e00d559-c465-4695-88be-c975343171c5",
+        "5f3c1b8e-6a2d-4f1e-9c7a-0e4b2d9a7f11"
+      ],
+      "description": "Si es grave: enlace 911 simulado con folio y aviso al contacto de emergencia."
+    },
+    {
+      "id": "9f644f0c-667c-42d8-b108-ec06b3a270a0",
+      "name": "Responder al copiloto",
+      "nodeIds": [
+        "982f00d3-7d74-44cf-9d7e-9b3b40cef521",
+        "26b7691f-d12e-4129-a8f3-2bacef6e584c"
+      ],
+      "description": "Arma el mensaje de voz con el folio y devuelve la respuesta JSON al que reportó."
+    }
+  ],
+  "id": "8Bj9IplOCddHguKN",
+  "tags": []
+}

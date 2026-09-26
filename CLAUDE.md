@@ -29,3 +29,6 @@ Lee docs/VIVECUU_MASTER.md (la sección 0 manda sobre todo) antes de cualquier c
 - Sin motor de ciudad: camiones de `public/data/rutas_camion.json` simulados en el cliente; ambulancia con ola verde simulada en el cliente (`src/lib/local/`).
 - Rutas de camión: nombres reales de Chihuahua con trazos APROXIMADOS (`scripts/generar-rutas-camion.mjs`, igual que `sim/rutas.py`). No son oficiales.
 - Segundo servidor de desarrollo sin pisar `.next`: `node scripts/dev-alt.mjs` (puerto 3001, `.next-alt`).
+
+## MVP conectado
+Guía: docs/MVP_SETUP.md · Esquema unificado (app + n8n): supabase/schema.sql + supabase/seed_infra.sql · Flujo F1: n8n/F1-incidente-vivecuu.json
