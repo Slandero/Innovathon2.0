@@ -190,7 +190,7 @@ export function AsistenteTab() {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4">
+      <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain p-4">
         {!msgs.length && (
           <div className="flex flex-col items-center gap-2 px-6 pt-10 text-center">
             <Icon name="forum" size={40} className="text-[#D5DAE0]" />

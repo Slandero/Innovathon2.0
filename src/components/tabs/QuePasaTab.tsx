@@ -113,7 +113,7 @@ export function QuePasaTab() {
           <Icon name={resumen.cargando ? 'progress_activity' : 'auto_awesome'} size={18} fill className={resumen.cargando ? 'animate-spin' : ''} /> Resumen
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3.5">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3.5">
         {resumen.texto && (
           <div className="mb-2 rounded-2xl border border-[#D5DBFF] bg-white p-3.5">
             <div className="mb-1.5 flex items-center justify-between">

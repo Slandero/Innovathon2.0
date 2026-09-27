@@ -124,7 +124,7 @@ export function CamionesTab() {
         </form>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4">
         {!rutas.length && (
           <div className={`${tarjeta} flex flex-col items-center gap-2 p-6 text-center text-sm text-ink-2`}>
             <Icon name={cargado ? 'directions_bus' : 'progress_activity'} size={32} className={cargado ? 'text-[#D5DAE0]' : 'animate-spin text-primary'} />
